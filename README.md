@@ -89,39 +89,57 @@ List minimum hardware requirements.
 
 ### Minimum software requirements
 
-<!-- CONTRIBUTOR TODO: add minimum software requirements
+- OpenShift Client CLI - [oc](https://docs.redhat.com/en/documentation/openshift_container_platform/4.18/html/cli_tools/openshift-cli-oc#installing-openshift-cli)
+- OpenShift Cluster 4.18+
+- OpenShift AI
+- Helm CLI - helm
 
-*Section is required.*
-
-Be specific. Don't say "OpenShift AI". Instead, tested with OpenShift AI 2.22
-
-If you know it only works in a specific version, say so. 
-
--->
 
 ### Required user permissions
 
-<!-- CONTRIBUTOR TODO: add user permissions
-
-*Section is required. Describe the permissions the user will need. Cluster
-admin? Regular user?*
-
---> 
+- Regular user permission for default deployment
+- Cluster admin required for *advanced* configurations
 
 
 ## Deploy
 
-<!-- CONTRIBUTOR TODO: add installation instructions 
+*The instructions below will deploy this quickstart to your OpenShift environment.*
 
-*Section is required. Include the explicit steps needed to deploy your
-quickstart. 
+*Please see the [local deployments](#local-deployment) section for additional deployment options.* 
 
-Assume user will follow your instructions EXACTLY. 
+### Prerequisites
+- [huggingface-cli](https://huggingface.co/docs/huggingface_hub/guides/cli) (optional)
+- [Hugging Face Token](https://huggingface.co/settings/tokens)
+- Access to [Meta Llama](https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct/) model
+- Access to [Meta Llama Guard](https://huggingface.co/meta-llama/Llama-Guard-3-8B/) model
+- Some of the example scripts use `jq` a JSON parsing utility which you can acquire via `brew install jq`
 
-If screenshots are included, remember to put them in the
-`docs/images` folder.*
+### Supported Models
 
--->
+| Function    | Model Name                             | Hardware    | AWS
+|-------------|----------------------------------------|-------------|-------------
+| Embedding   | `all-MiniLM-L6-v2`                     | CPU/GPU/HPU |
+| Generation  | `meta-llama/Llama-3.2-3B-Instruct`     | L4/HPU      | g6.2xlarge
+| Generation  | `meta-llama/Llama-3.1-8B-Instruct`     | L4/HPU      | g6.2xlarge
+| Generation  | `meta-llama/Meta-Llama-3-70B-Instruct` | A100 x2/HPU | p4d.24xlarge
+| Safety      | `meta-llama/Llama-Guard-3-8B`          | L4/HPU      | g6.2xlarge
+
+Note: the 70B model is NOT required for initial testing of this example. The safety/shield model `Llama-Guard-3-8B` is also optional.
+
+### Installation Steps
+
+1. **Clone Repository**
+
+```bash
+git clone https://github.com/rh-ai-quickstart/RAG
+```
+
+2. **Login to OpenShift**
+
+```bash
+oc login --server="<cluster-api-endpoint>" --token="sha256~XYZ"
+```
+
 
 ### Delete
 
