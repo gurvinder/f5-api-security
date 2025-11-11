@@ -1,9 +1,34 @@
+<!-- omit from toc -->
 # Securing AI Model Inference Endpoints with F5 Distributed Cloud WAAP
 
 This lab guides you through configuring **F5 Distributed Cloud (XC) Web Application and API Protection (WAAP)** features to secure a Generative AI model inference endpoint (represented by `llamastack.f5-ai-security` running in a vK8s environment).
 
 **Objective:** Secure the inference endpoint from prompt injection, shadow APIs, sensitive data leakage, and automated attacks.
 
+<!-- omit from toc -->
+## Table of contents
+
+<!-- TOC depthFrom:2 depthTo:3 -->
+- [🧩 Prerequisites](#-prerequisites)
+- [Step 0: Initial Load Balancer Configuration and Inference Endpoint Verification](#step-0-initial-load-balancer-configuration-and-inference-endpoint-verification)
+  - [Task 0.1: Verify llamastack Service Running in OpenShift](#task-01-verify-llamastack-service-running-in-openshift)
+  - [Task 0.2: Set up the HTTP Load Balancer](#task-02-set-up-the-http-load-balancer)
+  - [Verification of Inference Endpoint Access](#verification-of-inference-endpoint-access)
+- [🧱 Use Case 1 — Protecting the vLLM Inference Endpoint using WAF](#-use-case-1--protecting-the-vllm-inference-endpoint-using-waf)
+  - [Task 1 — Simulate an Unmitigated Attack via Swagger UI (Before WAF)](#task-1--simulate-an-unmitigated-attack-via-swagger-ui-before-waf)
+  - [Task 2 — Enable a WAF Policy on the F5 XC Load Balancer](#task-2--enable-a-waf-policy-on-the-f5-xc-load-balancer)
+  - [Task 3 — Simulate a Mitigated Attack via Swagger UI (After WAF)](#task-3--simulate-a-mitigated-attack-via-swagger-ui-after-waf)
+  - [Notes \& Troubleshooting](#notes--troubleshooting)
+  - [Appendix — Example Minimal Request (cURL)](#appendix--example-minimal-request-curl)
+- [🧾 Use Case 2: Enforcing API Specification, Sensitive Data Detection, and Preventing Shadow APIs](#-use-case-2-enforcing-api-specification-sensitive-data-detection-and-preventing-shadow-apis)
+  - [Task 2.1: Upload API Specification](#task-21-upload-api-specification)
+  - [Task 2.2: Apply API Protection and Deny Shadow APIs](#task-22-apply-api-protection-and-deny-shadow-apis)
+  - [Task 2.3: Traffic Generation and API Confirmation](#task-23-traffic-generation-and-api-confirmation)
+- [⚙️Use Case 3: Preventing Denial of Service (DoS) Attacks via Rate Limiting](#️use-case-3-preventing-denial-of-service-dos-attacks-via-rate-limiting)
+  - [Scenario](#scenario)
+  - [Task 3.1: Simulate Unmitigated Excessive Requests](#task-31-simulate-unmitigated-excessive-requests)
+  - [Task 3.2: Configure Rate Limiting](#task-32-configure-rate-limiting)
+  - [Task 3.3: Simulate Mitigated Excessive Requests](#task-33-simulate-mitigated-excessive-requests)
 ---
 
 ## 🧩 Prerequisites
@@ -149,7 +174,6 @@ In this task you will simulate an XSS attack against the unprotected LLM endpoin
    Inspect the **Server Response**. If the response body contains the injected `<script>` (or the script is rendered), the endpoint is vulnerable to XSS.
 
 ![Swagger Chat Response](images/swagger_chat_response.png)
----
 
 ### Task 2 — Enable a WAF Policy on the F5 XC Load Balancer
 
@@ -201,7 +225,7 @@ Verify the WAF policy successfully blocks the XSS injection.
 
 ---
 
-## Notes & Troubleshooting
+### Notes & Troubleshooting
 
 - If the block is not observed:
   - Confirm the WAF policy is attached to the **correct** HTTP Load Balancer (matching host/path).
@@ -213,7 +237,7 @@ Verify the WAF policy successfully blocks the XSS injection.
 
 ---
 
-## Appendix — Example Minimal Request (cURL)
+### Appendix — Example Minimal Request (cURL)
 
 Below is an example `curl` command that sends the same malicious payload directly to the inference endpoint (use only in controlled/test environments):
 
