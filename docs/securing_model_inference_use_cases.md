@@ -175,7 +175,7 @@ Attach a pre-built WAF policy to the HTTP Load Balancer fronting the vLLM servic
 6. **Save Changes**  
    Go to **Other Settings** (left navigation), then click **Save and Exit**.
 
-**Insert Screen Capture:** Add a screenshot here showing the WAF policy attached to the F5 XC Load Balancer.
+![WAF policy](images/waf-ericji-vllm.png)
 
 ---
 
