@@ -131,7 +131,7 @@ if "text_input_value" not in st.session_state:
 new_endpoint = st.text_input(
     "XC URL",
     value=st.session_state.text_input_value,
-    help="Enter the LlamaStack endpoint URL:\n• http://llamastack:8321 (Local LlamaStack)\n• http://your-external-llamastack.com (External LlamaStack)\n• https://your-f5-xc.com:8321 (F5 XC Proxy to LlamaStack)\n\nModels will be automatically fetched when you change the URL.",
+    help="Enter the LlamaStack endpoint URL:\n• http://llamastack:8321 (Local LlamaStack)\n• http://your-xc-endpoint.com (External LlamaStack)\n• https://your-f5-xc.com:8321 (F5 XC Proxy to LlamaStack)\n\nModels will be automatically fetched when you change the URL.",
     key="xc_url_input",
     on_change=on_xc_url_change
 )
