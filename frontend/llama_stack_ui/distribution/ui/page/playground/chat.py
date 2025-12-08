@@ -107,19 +107,8 @@ def tool_chat_page():
         st.subheader("Model")
         model = st.selectbox(label="Model", options=model_list, on_change=reset_agent, label_visibility="collapsed")
 
-        ## Added mode 
-        processing_mode = st.radio(
-            "Processing mode",
-            ["Direct", "Agent-based"],
-            index=0, # Default to Direct
-            captions=[
-                "Directly calls the model with optional RAG.",
-                "Uses an Agent with tools.",
-            ],
-            on_change=reset_agent,
-            help="Choose how requests are processed. 'Direct' bypasses agents, 'Agent-based' uses them.",
-        )
-
+        ## Hardcoded to Direct mode only
+        processing_mode = "Direct"
         
         toolgroup_selection = []
         if processing_mode == "Direct":
@@ -132,9 +121,6 @@ def tool_chat_page():
                 options=vector_db_names,
                 on_change=reset_agent,
             )
-        if processing_mode == "Agent-based":
-            st.subheader("Available ToolGroups")
-
             toolgroup_selection = st.pills(
                 label="Built-in tools",
                 options=builtin_tools_list,
@@ -197,10 +183,6 @@ def tool_chat_page():
             #     agent_type = AgentType.REGULAR
             agent_type = AgentType.REGULAR
         
-        if processing_mode == "Agent-based":
-            input_shields = []
-            output_shields = []
-
             st.subheader("Security Shields")
             shields_available = client.shields.list()
             shield_options = [s.identifier for s in shields_available if hasattr(s, 'identifier')]
@@ -215,8 +197,6 @@ def tool_chat_page():
 
         st.subheader("System Prompt")
         default_prompt = "You are a helpful AI assistant."
-        if processing_mode == "Agent-based" and agent_type == AgentType.REACT:
-            default_prompt = "You are a helpful ReAct agent. Reason step-by-step to fulfill the user query using available tools."
         system_prompt = st.text_area(
             "System Prompt", value=default_prompt, on_change=reset_agent, height=100
         )
@@ -231,27 +211,6 @@ def tool_chat_page():
     
 
     updated_toolgroup_selection = []
-    if processing_mode == "Agent-based":
-        for i, tool_name in enumerate(toolgroup_selection):
-            if tool_name == "builtin::rag":
-                if len(selected_vector_dbs) > 0:
-                    vector_dbs = llama_stack_api.client.vector_dbs.list() or []
-                    vector_db_ids = [vector_db.identifier for vector_db in vector_dbs if get_vector_db_name(vector_db) in selected_vector_dbs]
-                    tool_dict = dict(
-                        name="builtin::rag/knowledge_search",
-                        args={
-                            "vector_db_ids": list(vector_db_ids),
-                            # Defaults
-                            "query_config": {
-                                "chunk_size_in_tokens": 512,
-                                "chunk_overlap_in_tokens": 50,
-                            },
-                        },
-                    )
-                    updated_toolgroup_selection.append(tool_dict)
-            else:
-                updated_toolgroup_selection.append(tool_name)
-
     @st.cache_resource
     def create_agent():
         if "agent_type" in st.session_state and st.session_state.agent_type == AgentType.REACT:
@@ -287,10 +246,6 @@ def tool_chat_page():
                 input_shields= input_shields,
                 output_shields= output_shields,
             )
-
-    if processing_mode == "Agent-based":
-        st.session_state.agent_type = agent_type
-        agent = create_agent()
 
         if "agent_session_id" not in st.session_state:
             st.session_state["agent_session_id"] = agent.create_session(session_name=f"tool_demo_{uuid.uuid4()}")
@@ -647,13 +602,6 @@ def tool_chat_page():
 
         print(f"In process_prompt: {st.session_state.prompt}")
         print(f"In processing mode: {processing_mode}")
-        if processing_mode == "Agent-based":
-            agent_process_prompt(st.session_state.prompt, current_turn_debug_events_list)
-        else:  # rag_mode == "Direct"
-            direct_process_prompt(st.session_state.prompt, current_turn_debug_events_list)
-        #st.session_state.prompt = None
-        st.rerun()
-
     # Handle selected question from suggestions
     if st.session_state.selected_question:
         prompt = st.session_state.selected_question

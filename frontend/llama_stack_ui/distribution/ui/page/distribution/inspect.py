@@ -10,12 +10,7 @@ Inspect page: allows browsing and viewing details of Llama Stack resources.
 from streamlit_option_menu import option_menu
 import streamlit as st
 
-from llama_stack_ui.distribution.ui.page.distribution.datasets import datasets
-from llama_stack_ui.distribution.ui.page.distribution.eval_tasks import benchmarks
 from llama_stack_ui.distribution.ui.page.distribution.models import models
-from llama_stack_ui.distribution.ui.page.distribution.scoring_functions import scoring_functions
-from llama_stack_ui.distribution.ui.page.distribution.shields import shields
-from llama_stack_ui.distribution.ui.page.distribution.providers import providers
 from llama_stack_ui.distribution.ui.page.distribution.vector_dbs import vector_dbs
 
 def inspect_page():
@@ -24,12 +19,10 @@ def inspect_page():
     """
     st.header("🔍 Inspect")
     options = [
-        "API Providers",
         "Models",
-        "Vector Databases",
-        "Shields"
+        "Vector Databases"
     ]
-    icons = ["plug", "magic", "memory", "shield"]
+    icons = ["magic", "memory"]
     selected_resource = option_menu(
         None,
         options,
@@ -46,10 +39,6 @@ def inspect_page():
         vector_dbs()
     elif selected_resource == "Models":
         models()
-    elif selected_resource == "Shields":
-        shields()
-    elif selected_resource == "API Providers":
-        providers()
 
 
 inspect_page()

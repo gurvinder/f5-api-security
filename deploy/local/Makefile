@@ -230,14 +230,14 @@ config: ## Show current configuration
 # UI Build and Deployment Targets
 build-ui: ## Build the RAG UI container locally
 	@echo "$(BLUE)[INFO]$(NC) Building RAG UI container for $(PLATFORM)..."
-	@podman build --platform $(PLATFORM) --build-arg IMAGE_TAG=$(VERSION) -t f5-security-rag-ui:$(VERSION) -f $(DIST_UI_DIR)/Containerfile $(DIST_UI_DIR)
+	@podman build --platform $(PLATFORM) --build-arg IMAGE_TAG=$(VERSION) -t f5-security-ui:$(VERSION) -f $(DIST_UI_DIR)/Containerfile $(DIST_UI_DIR)
 	@echo "$(GREEN)[SUCCESS]$(NC) RAG UI container built successfully."
 
 build-and-push-ui: build-ui ## Build and push UI container to registry
 	@echo "$(BLUE)[INFO]$(NC) Pushing UI container to registry..."
 	@podman login $(CONTAINER_REGISTRY)
-	@podman tag f5-security-rag-ui:$(VERSION) $(CONTAINER_REGISTRY)/f5-security-rag-ui:$(VERSION)
-	@podman push $(CONTAINER_REGISTRY)/f5-security-rag-ui:$(VERSION)
+	@podman tag f5-security-ui:$(VERSION) $(CONTAINER_REGISTRY)/f5-security-ui:$(VERSION)
+	@podman push $(CONTAINER_REGISTRY)/f5-security-ui:$(VERSION)
 	@echo "$(GREEN)[SUCCESS]$(NC) UI container pushed to registry."
 
 dev: ## Start backend services in containers and run UI locally for development

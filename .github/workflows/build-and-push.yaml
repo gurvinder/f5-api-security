@@ -8,13 +8,16 @@ on:
 
 jobs:
   build-and-push:
-    if: github.repository == 'rh-ai-quickstart/RAG'
+    if: github.repository == 'rh-ai-quickstart/F5-API-Security'
     runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
-          - name: llamastack-dist-ui
+          - name: f5-security-ui
             context: frontend
+            chart: deploy/helm/rag/Chart.yaml
+          - name: f5-security-rag-ingestion
+            context: ingestion-service
             chart: deploy/helm/rag/Chart.yaml
     steps:
       - name: Checkout
@@ -33,8 +36,8 @@ jobs:
       - name: Extract version from Chart.yaml
         id: version
         run: |
-          version=$(grep '^version:' ${{ matrix.chart }} | awk '{print $2}')
-          echo "tag=$version" >> $GITHUB_OUTPUT
+          f5_version=$(grep '^version:' ${{ matrix.chart }} | awk '{print $2}')
+          echo "f5_tag=$f5_version" >> $GITHUB_OUTPUT
 
       - name: Build and push ${{ matrix.name }}
         uses: docker/build-push-action@v5
@@ -42,6 +45,8 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.context }}/Containerfile
           push: true
-          tags: quay.io/rh-ai-quickstart/${{ matrix.name }}:${{ steps.version.outputs.tag }}
+          tags: |
+            quay.io/rh-ai-quickstart/${{ matrix.name }}:${{ steps.version.outputs.f5_tag }}
+            quay.io/rh-ai-quickstart/${{ matrix.name }}:latest
           build-args: |
-            IMAGE_TAG=${{ steps.version.outputs.tag }}
+            IMAGE_TAG=0.2.23
