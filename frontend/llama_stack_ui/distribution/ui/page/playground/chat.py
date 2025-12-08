@@ -107,52 +107,34 @@ def tool_chat_page():
         st.subheader("Model")
         model = st.selectbox(label="Model", options=model_list, on_change=reset_agent, label_visibility="collapsed")
 
-        ## Hardcoded to Direct mode only
+        ## Hardcoded to Direct mode with RAG always enabled
         processing_mode = "Direct"
         
-        toolgroup_selection = []
-        if processing_mode == "Direct":
-            vector_dbs = llama_stack_api.client.vector_dbs.list() or []
-            if not vector_dbs:
-                st.info("No vector databases available for selection.")
-            vector_db_names = [get_vector_db_name(vector_db) for vector_db in vector_dbs]
-            selected_vector_dbs = st.multiselect(
-                label="Select Document Collections to use in RAG queries",
-                options=vector_db_names,
-                on_change=reset_agent,
-            )
-            toolgroup_selection = st.pills(
-                label="Built-in tools",
-                options=builtin_tools_list,
+        # RAG is always enabled in Direct mode - no user selection needed
+        toolgroup_selection = ["builtin::rag"]
+        
+        # Document Collections selection - single, clean selector
+        vector_dbs = llama_stack_api.client.vector_dbs.list() or []
+        if not vector_dbs:
+            st.info("No vector databases available for selection.")
+        vector_db_names = [get_vector_db_name(vector_db) for vector_db in vector_dbs]
+        selected_vector_dbs = st.multiselect(
+            label="Select Document Collections to use in RAG queries",
+            options=vector_db_names,
+            on_change=reset_agent,
+        )
+
+        # Display MCP servers list if available
+        if len(mcp_tools_list) > 0:
+            mcp_selection = st.pills(
+                label="MCP Servers",
+                options=mcp_tools_list,
                 selection_mode="multi",
                 on_change=reset_agent,
                 format_func=lambda tool: "".join(tool.split("::")[1:]),
-                help="List of built-in tools from your llama stack server.",
+                help="List of MCP servers registered to your llama stack server.",
             )
-
-            if "builtin::rag" in toolgroup_selection:
-                vector_dbs = llama_stack_api.client.vector_dbs.list() or []
-                if not vector_dbs:
-                    st.info("No vector databases available for selection.")
-                vector_db_names = [get_vector_db_name(vector_db) for vector_db in vector_dbs]
-                selected_vector_dbs = st.multiselect(
-                    label="Select Document Collections to use in RAG queries",
-                    options=vector_db_names,
-                    on_change=reset_agent,
-                )
-
-            # Display mcp list only if there are mcp tools
-            if len(mcp_tools_list) > 0:
-                mcp_selection = st.pills(
-                    label="MCP Servers",
-                    options=mcp_tools_list,
-                    selection_mode="multi",
-                    on_change=reset_agent,
-                    format_func=lambda tool: "".join(tool.split("::")[1:]),
-                    help="List of MCP servers registered to your llama stack server.",
-                )
-
-                toolgroup_selection.extend(mcp_selection)
+            toolgroup_selection.extend(mcp_selection)
 
             grouped_tools = {}
             total_tools = 0

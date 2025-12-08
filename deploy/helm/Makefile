@@ -126,23 +126,6 @@ endef
 # If using extra tools that require API Keys set the LLAMA_STACK_ENV variable with key, value pairs
 # LLAMA_STACK_ENV ?= {Key1: "Value1", Key2: "Value2" etc.}
 
-#ingestion pipeline configuration
-SOURCE ?= S3
-EMBEDDING_MODEL ?= all-MiniLM-L6-v2
-INGESTION_PIPELINE_NAME ?= demo-rag-vector-db
-INGESTION_PIPELINE_VERSION ?= 1.0
-ACCESS_KEY_ID ?= $(MINIO_USER)
-SECRET_ACCESS_KEY ?= $(MINIO_PASSWORD)
-BUCKET_NAME ?= documents
-ENDPOINT_URL ?= http://minio:9000
-REGION ?= us-east-1
-# PDF file path variable for upload-pdf target
-PDF_DIR = ../../notebooks
-S3_TEMPLATE={"access_key_id":"$(1)","secret_access_key":"$(2)","bucket_name":"$(3)","endpoint_url":"$(4)","region":"$(5)"}
-
-# CUSTOM VALUES (full path) FOR EXTRA INGESTION PIPELINE
-# CUSTOM_INGESTION_PIPELINE_VALUES = ~/my-values.yaml
-# CUSTOM_INGESTION_PIPELINE_NAME ?= my-pipeline
 
 helm_pgvector_args = \
     --set pgvector.secret.user=$(POSTGRES_USER) \
@@ -172,12 +155,6 @@ helm_llama_stack_args = \
     $(if $(LLAMA_STACK_ENV),--set-json llama-stack.secrets='$(LLAMA_STACK_ENV)',) \
     $(if $(RAW_DEPLOYMENT),--set llama-stack.rawDeploymentMode=$(RAW_DEPLOYMENT),)
 
-helm_ingestion_args = \
-	$(if $(SOURCE),--set ingestion-pipeline.source='$(SOURCE)',) \
-	$(if $(EMBEDDING_MODEL),--set ingestion-pipeline.embedding_model='$(EMBEDDING_MODEL)',) \
-	$(if $(INGESTION_PIPELINE_NAME),--set ingestion-pipeline.name='$(INGESTION_PIPELINE_NAME)',) \
-	$(if $(INGESTION_PIPELINE_VERSION),--set ingestion-pipeline.version='$(INGESTION_PIPELINE_VERSION)',) \
-    $(if $(SOURCE),--set-json ingestion-pipeline.S3='$(call S3_TEMPLATE,$(ACCESS_KEY_ID),$(SECRET_ACCESS_KEY),$(BUCKET_NAME),$(ENDPOINT_URL),$(REGION))',)
 
 # Default target
 .PHONY: help
@@ -550,8 +527,6 @@ uninstall: ## Uninstall the RAG deployment and clean up resources
 	@$(MAKE) status
 	@echo -e "$(GREEN)[SUCCESS]$(NC) Uninstall completed"
 
-# Install extra ingestion pipelines (removed duplicate)
-
 # Check deployment status
 .PHONY: status
 status: ## Check status of the deployment
@@ -571,12 +546,6 @@ status: ## Check status of the deployment
 	@echo -e "$(BLUE)[INFO]$(NC) Listing pvcs..."
 	@oc get pvc -n $(NAMESPACE) || true
 
-# Install extra ingestion pipelines
-.PHONY: install-ingestion-pipeline
-install-ingestion-pipeline: ## Install extra ingestion pipelines
-	@echo -e "$(BLUE)[INFO]$(NC) Installing extra ingestion pipeline..."
-	@helm -n $(NAMESPACE) install $(CUSTOM_INGESTION_PIPELINE_NAME) rag/charts/ingestion-pipeline-0.1.0.tgz -f $(CUSTOM_INGESTION_PIPELINE_VALUES)
-	@echo -e "$(GREEN)[SUCCESS]$(NC) Extra ingestion pipeline installed"
 
 # Delete all jobs in the namespace
 .PHONY: delete-jobs
