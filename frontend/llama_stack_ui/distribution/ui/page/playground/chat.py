@@ -183,11 +183,9 @@ def tool_chat_page():
             #     agent_type = AgentType.REGULAR
             agent_type = AgentType.REGULAR
         
-            st.subheader("Security Shields")
-            shields_available = client.shields.list()
-            shield_options = [s.identifier for s in shields_available if hasattr(s, 'identifier')]
-            input_shields = st.multiselect("Input Shields", options=shield_options, on_change=reset_agent)
-            output_shields = st.multiselect("Output Shields", options=shield_options, on_change=reset_agent)
+            # Security Shields functionality removed - using empty lists
+            input_shields = []
+            output_shields = []
 
         st.subheader("Sampling Parameters")
         temperature = st.slider("Temperature", 0.0, 2.0, 0.1, 0.05, on_change=reset_agent)
