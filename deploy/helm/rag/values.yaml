@@ -25,6 +25,16 @@ readinessProbe:
 env:
   - name: LLAMA_STACK_ENDPOINT
     value: 'http://llamastack:8321'
+  - name: PGVECTOR_HOST
+    value: 'pgvector'
+  - name: PGVECTOR_PORT
+    value: '5432'
+  - name: PGVECTOR_USER
+    value: 'postgres'
+  - name: PGVECTOR_PASSWORD
+    value: 'rag_password'
+  - name: PGVECTOR_DB
+    value: 'rag_blueprint'
 
 volumes:
   - emptyDir: {}
@@ -154,6 +164,8 @@ configure-pipeline:
 
 
 llama-stack:
+  image:
+    tag: 0.2.23  # Match frontend client version (was 0.2.22)
   secrets:
     TAVILY_SEARCH_API_KEY: "Paste-your-key-here"
 

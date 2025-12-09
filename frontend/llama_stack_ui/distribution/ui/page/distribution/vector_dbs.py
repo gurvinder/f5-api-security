@@ -6,6 +6,7 @@
 
 from llama_stack_ui.distribution.ui.modules.utils import get_vector_db_name, data_url_from_file
 import streamlit as st
+import os
 
 from llama_stack_ui.distribution.ui.modules.api import llama_stack_api
 from llama_stack_client import RAGDocument
@@ -217,23 +218,40 @@ def _show_document_upload_ui(vector_db_name, vector_db_obj=None):
         st.session_state["upload_status"] = None
         st.session_state["upload_message"] = ""
     
+    # Initialize session state to track processed files
+    upload_key = f"processed_files_{vector_db_name}"
+    if upload_key not in st.session_state:
+        st.session_state[upload_key] = set()
+    
     # File uploader
     uploaded_files = st.file_uploader(
-        "Browse and select files to upload",
+        "Browse and select files to upload (files will upload automatically)",
         accept_multiple_files=True,
         type=["txt", "pdf", "doc", "docx"],
         key=f"uploader_{vector_db_name}",  # Unique key per database
-        help="Select one or more documents to add to this vector database"
+        help="Select one or more documents - they will be uploaded automatically to this vector database"
     )
     
-    # Process uploaded files
+    # Auto-upload when files are selected
     if uploaded_files:
-        st.success(f"Selected {len(uploaded_files)} file(s): {', '.join([f.name for f in uploaded_files])}")
+        # Create a unique identifier for this set of files
+        file_set_id = frozenset([f.name + str(f.size) for f in uploaded_files])
         
-        if st.button("Upload Documents", type="primary", key=f"upload_btn_{vector_db_name}"):
+        # Only process if this is a new set of files
+        if file_set_id not in st.session_state[upload_key]:
+            # Mark as processed IMMEDIATELY before upload to prevent re-triggering
+            st.session_state[upload_key].add(file_set_id)
+            
+            st.info(f"📤 Uploading {len(uploaded_files)} file(s): {', '.join([f.name for f in uploaded_files])}")
+            
             # Get the correct database ID for upload
             vector_db_id = vector_db_obj.identifier if vector_db_obj and hasattr(vector_db_obj, 'identifier') else vector_db_name
+            
+            # Upload automatically
             _upload_documents_to_database(vector_db_name, uploaded_files, vector_db_id)
+        else:
+            # Files already processed, just show confirmation
+            st.success(f"✅ {len(uploaded_files)} file(s) already uploaded: {', '.join([f.name for f in uploaded_files])}")
 
 
 def _upload_documents_to_database(vector_db_name, uploaded_files, vector_db_id=None):
@@ -260,6 +278,7 @@ def _upload_documents_to_database(vector_db_name, uploaded_files, vector_db_id=N
                 RAGDocument(
                     document_id=uploaded_file.name,
                     content=data_url_from_file(uploaded_file),
+                    metadata={"original_filename": uploaded_file.name}  # Store filename in metadata as backup
                 )
                 for uploaded_file in uploaded_files
             ]
@@ -286,9 +305,92 @@ def _upload_documents_to_database(vector_db_name, uploaded_files, vector_db_id=N
         st.rerun()
 
 
+def _get_documents_from_pgvector(vector_db_id):
+    """
+    Query pgvector directly to get document IDs stored in the database.
+    
+    Args:
+        vector_db_id (str): The vector database identifier
+        
+    Returns:
+        list: List of unique document IDs, or None if query fails
+    """
+    try:
+        import asyncpg
+        import asyncio
+        
+        # Get pgvector connection details from environment or defaults
+        pg_host = os.environ.get("PGVECTOR_HOST", "pgvector")
+        pg_port = os.environ.get("PGVECTOR_PORT", "5432")
+        pg_user = os.environ.get("PGVECTOR_USER", "postgres")
+        pg_password = os.environ.get("PGVECTOR_PASSWORD", "rag_password")
+        pg_database = os.environ.get("PGVECTOR_DB", "rag_blueprint")
+        
+        async def fetch_documents():
+            try:
+                # Connect to PostgreSQL
+                conn = await asyncpg.connect(
+                    host=pg_host,
+                    port=pg_port,
+                    user=pg_user,
+                    password=pg_password,
+                    database=pg_database
+                )
+                
+                # Query for unique document IDs from the document JSONB column
+                # The vector_db_id is used as the table name with underscores replacing hyphens
+                table_name = f"vs_{vector_db_id.replace('-', '_')}"
+                
+                # Try to get original filename from metadata first, fallback to document_id
+                query = f"""
+                    SELECT DISTINCT 
+                        COALESCE(
+                            document->'metadata'->>'original_filename',
+                            document->'metadata'->>'document_id'
+                        ) as document_id
+                    FROM {table_name}
+                    WHERE document->'metadata'->>'document_id' IS NOT NULL
+                    ORDER BY document_id
+                """
+                
+                queries = [query]
+                
+                doc_ids = []
+                for query in queries:
+                    try:
+                        rows = await conn.fetch(query)
+                        if rows:
+                            doc_ids = [row['document_id'] for row in rows if row['document_id']]
+                            if doc_ids:
+                                break
+                    except Exception as e:
+                        continue  # Try next query pattern
+                
+                await conn.close()
+                return doc_ids if doc_ids else None
+                
+            except Exception as e:
+                return None
+        
+        # Run the async function
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        
+        return loop.run_until_complete(fetch_documents())
+        
+    except ImportError:
+        # asyncpg not available
+        return None
+    except Exception as e:
+        return None
+
+
 def _show_existing_documents_table(vector_db_name, vector_db_obj=None):
     """
-    Display a table showing existing documents in the selected vector database.
+    Display information about documents in the selected vector database.
     
     Args:
         vector_db_name (str): Display name of the selected vector database
@@ -301,112 +403,120 @@ def _show_existing_documents_table(vector_db_name, vector_db_obj=None):
         else:
             vector_db_id = vector_db_name  # Fallback to display name
         
-        # Show debug info about the database
-        with st.expander("🔍 Database Debug Info", expanded=False):
-            st.write(f"**Display Name:** {vector_db_name}")
-            st.write(f"**Database ID:** {vector_db_id}")
-            if vector_db_obj:
-                st.write(f"**Database Object:** {vector_db_obj.to_dict()}")
-        
-        with st.spinner("Loading existing documents..."):
-            documents_info = []
+        with st.spinner("Checking for documents..."):
+            # First, try to get document list from pgvector directly
+            document_ids = _get_documents_from_pgvector(vector_db_id)
             
-            # Try multiple query approaches to find documents
-            query_approaches = [
-                # Try broad queries that might match any content
-                {"content": "document", "description": "document query"},
-                {"content": "file", "description": "file query"},  
-                {"content": "text", "description": "text query"},
-                {"content": "content", "description": "content query"},
-                {"content": "pdf", "description": "pdf query"},
-                {"content": "f5", "description": "f5 query"},  # Try specific term from your file
-                {"content": "distributed", "description": "distributed query"},  # Another term from your file
-                {"content": "cloud", "description": "cloud query"},  # Another term from your file
-            ]
-            
-            successful_queries = []
-            
-            for approach in query_approaches:
+            if document_ids:
+                # Success! We have the actual document filenames
+                st.success(f"✅ Found {len(document_ids)} document(s) in this vector database")
+                
+                # Display documents in a table with better formatting
+                import pandas as pd
+                
+                # Categorize document IDs (auto-generated vs actual filenames)
+                doc_info = []
+                for doc_id in document_ids:
+                    # Check if it's an auto-generated ID (starts with 'file-' followed by hash)
+                    if doc_id.startswith('file-') and len(doc_id) > 40 and '-' in doc_id[5:]:
+                        doc_type = '🔧 Auto-generated ID'
+                        display_name = f"{doc_id[:20]}...{doc_id[-8:]}"  # Shorten for display
+                    else:
+                        doc_type = '📄 Filename'
+                        display_name = doc_id
+                    
+                    doc_info.append({
+                        'Document ID': display_name,
+                        'Type': doc_type,
+                        'Full ID': doc_id
+                    })
+                
+                df = pd.DataFrame(doc_info)
+                
+                # Show the table without the Full ID column (it's just for reference)
+                st.dataframe(df[['Document ID', 'Type']], use_container_width=True)
+                
+                # Add explanation if there are auto-generated IDs
+                if any('Auto-generated' in info['Type'] for info in doc_info):
+                    st.info("""
+                    **Note:** Documents with auto-generated IDs were uploaded through an ingestion pipeline 
+                    or external process that didn't preserve the original filename. Documents uploaded through 
+                    this UI will show their actual filenames.
+                    """)
+                
+                # Show expandable section with full IDs
+                with st.expander("🔍 View Full Document IDs"):
+                    for info in doc_info:
+                        st.code(info['Full ID'])
+                
+            else:
+                # Fallback: Try a simple query to see if documents exist
                 try:
                     rag_response = llama_stack_api.client.tool_runtime.rag_tool.query(
-                        content=approach["content"],
-                        vector_db_ids=[vector_db_id]  # Use the correct database ID
+                        content="document",
+                        vector_db_ids=[vector_db_id]
                     )
                     
-                    # Debug: Show what we got back
-                    if hasattr(rag_response, 'content') and rag_response.content:
-                        successful_queries.append(f"✅ {approach['description']}: Found content")
-                        
-                        # Try to extract document info from the response
-                        # The response might contain document references in the content
-                        response_content = str(rag_response.content)
-                        
-                        # Look for document ID patterns in the response
-                        if 'f5-distributed-cloud' in response_content.lower():
-                            documents_info.append({
-                                'Document Name': 'f5-distributed-cloud-app-stack-ds.pdf',
-                                'Content Preview': response_content[:200] + "..." if len(response_content) > 200 else response_content
-                            })
+                    # Check if we got content back (indicates documents exist)
+                    has_content = hasattr(rag_response, 'content') and rag_response.content and len(str(rag_response.content).strip()) > 0
                     
-                    # Also check for chunks attribute
-                    if hasattr(rag_response, 'chunks') and rag_response.chunks:
-                        successful_queries.append(f"✅ {approach['description']}: Found {len(rag_response.chunks)} chunks")
+                    if has_content:
+                        content_length = len(str(rag_response.content))
                         
-                        for chunk in rag_response.chunks:
-                            # Try different ways to get document ID
-                            doc_id = None
-                            content_preview = ""
-                            
-                            if hasattr(chunk, 'document_id'):
-                                doc_id = chunk.document_id
-                            elif hasattr(chunk, 'metadata') and chunk.metadata and 'document_id' in chunk.metadata:
-                                doc_id = chunk.metadata['document_id']
-                            elif hasattr(chunk, 'metadata') and chunk.metadata and 'source' in chunk.metadata:
-                                doc_id = chunk.metadata['source']
-                            
-                            if hasattr(chunk, 'content'):
-                                content_preview = chunk.content[:200] + "..." if len(chunk.content) > 200 else chunk.content
-                            elif hasattr(chunk, 'text'):
-                                content_preview = chunk.text[:200] + "..." if len(chunk.text) > 200 else chunk.text
-                            
-                            if doc_id:
-                                doc_info = {
-                                    'Document Name': str(doc_id),
-                                    'Content Preview': content_preview
-                                }
-                                if doc_info not in documents_info:
-                                    documents_info.append(doc_info)
+                        # Show that documents exist
+                        st.success(f"✅ Documents are present in this vector database")
+                        st.info(f"📊 Retrieved {content_length} characters of content from the database")
+                        
+                        # Show a preview of the content
+                        with st.expander("📄 Content Preview", expanded=False):
+                            preview_text = str(rag_response.content)[:500]
+                            if len(str(rag_response.content)) > 500:
+                                preview_text += "..."
+                            st.text(preview_text)
+                        
+                        # Explain the limitation
+                        st.warning("""
+                        **Note:** Unable to retrieve document names directly. The documents exist but 
+                        pgvector query is not available. To see which specific documents were uploaded:
+                        
+                        - Remember the filenames you uploaded
+                        - Check the upload success messages
+                        - Query the database with specific search terms to verify content
+                        """)
+                        
+                        # Provide a test query interface
+                        st.subheader("🔍 Test Document Search")
+                        test_query = st.text_input(
+                            "Enter a search query to test document retrieval:",
+                            placeholder="e.g., 'security policy' or 'F5'",
+                            key=f"test_query_{vector_db_id}"
+                        )
+                        
+                        if test_query:
+                            try:
+                                test_response = llama_stack_api.client.tool_runtime.rag_tool.query(
+                                    content=test_query,
+                                    vector_db_ids=[vector_db_id]
+                                )
+                                
+                                if test_response.content:
+                                    st.success(f"✅ Found relevant content ({len(test_response.content)} characters)")
+                                    with st.expander("View Retrieved Content"):
+                                        st.text(test_response.content)
+                                else:
+                                    st.info("No content found for this query")
+                            except Exception as e:
+                                st.error(f"Query error: {str(e)}")
                     else:
-                        successful_queries.append(f"❌ {approach['description']}: No chunks found")
+                        st.info("📭 This vector database appears to be empty")
+                        st.write("Upload documents using the section below to get started.")
                         
                 except Exception as e:
-                    successful_queries.append(f"❌ {approach['description']}: Error - {str(e)}")
-                    continue
-            
-            # Show debug information in an expander
-            with st.expander("🔍 Debug Information (click to expand)", expanded=False):
-                st.write("**Query Results:**")
-                for result in successful_queries:
-                    st.write(result)
-                st.write(f"**Total documents found:** {len(documents_info)}")
-            
-            if documents_info:
-                # Create a DataFrame for better display
-                import pandas as pd
-                df = pd.DataFrame(documents_info)
-                
-                # Remove duplicates based on Document Name
-                df = df.drop_duplicates(subset=['Document Name'])
-                
-                st.write(f"Found {len(df)} document(s) in this vector database:")
-                st.dataframe(df, use_container_width=True)
-            else:
-                st.info("No documents found in this vector database. This could mean:")
-                st.write("• The database is empty")
-                st.write("• Documents were uploaded but not yet indexed")  
-                st.write("• The query approach needs adjustment")
-                st.write("• Check the debug information above for more details")
+                    st.error(f"Error checking database: {str(e)}")
+                    st.info("Unable to query the database. It may be empty or inaccessible.")
                 
     except Exception as e:
-        st.error(f"Error loading documents: {str(e)}")
-        st.write("**Full error details:**", str(e))
+        st.error(f"Error loading document information: {str(e)}")
+        import traceback
+        with st.expander("Error Details"):
+            st.code(traceback.format_exc())
