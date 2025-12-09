@@ -597,6 +597,11 @@ def tool_chat_page():
 
         print(f"In process_prompt: {st.session_state.prompt}")
         print(f"In processing mode: {processing_mode}")
+        
+        # Process the prompt based on mode (Direct is hardcoded)
+        if processing_mode == "Direct":
+            direct_process_prompt(prompt, current_turn_debug_events_list)
+        
     # Handle selected question from suggestions
     if st.session_state.selected_question:
         prompt = st.session_state.selected_question

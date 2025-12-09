@@ -274,9 +274,6 @@ def _show_document_upload_ui(vector_db_name, vector_db_obj=None):
             
             # Upload automatically
             _upload_documents_to_database(vector_db_name, uploaded_files, vector_db_id)
-        else:
-            # Files already processed, just show confirmation
-            st.success(f"✅ {len(uploaded_files)} file(s) already uploaded: {', '.join([f.name for f in uploaded_files])}")
 
 
 def _upload_documents_to_database(vector_db_name, uploaded_files, vector_db_id=None):
@@ -435,45 +432,18 @@ def _show_existing_documents_table(vector_db_name, vector_db_obj=None):
             
             if document_ids:
                 # Success! We have the actual document filenames
-                st.success(f"✅ Found {len(document_ids)} document(s) in this vector database")
-                
                 # Display documents in a table with better formatting
                 import pandas as pd
                 
-                # Categorize document IDs (auto-generated vs actual filenames)
-                doc_info = []
-                for doc_id in document_ids:
-                    # Check if it's an auto-generated ID (starts with 'file-' followed by hash)
-                    if doc_id.startswith('file-') and len(doc_id) > 40 and '-' in doc_id[5:]:
-                        doc_type = '🔧 Auto-generated ID'
-                        display_name = f"{doc_id[:20]}...{doc_id[-8:]}"  # Shorten for display
-                    else:
-                        doc_type = '📄 Filename'
-                        display_name = doc_id
-                    
-                    doc_info.append({
-                        'Document ID': display_name,
-                        'Type': doc_type,
-                        'Full ID': doc_id
-                    })
+                # Create simple table with filenames
+                doc_info = [{'Filename': doc_id} for doc_id in document_ids]
                 
                 df = pd.DataFrame(doc_info)
+                # Set index to start at 1 instead of 0
+                df.index = df.index + 1
                 
-                # Show the table without the Full ID column (it's just for reference)
-                st.dataframe(df[['Document ID', 'Type']], use_container_width=True)
-                
-                # Add explanation if there are auto-generated IDs
-                if any('Auto-generated' in info['Type'] for info in doc_info):
-                    st.info("""
-                    **Note:** Documents with auto-generated IDs were uploaded through an ingestion pipeline 
-                    or external process that didn't preserve the original filename. Documents uploaded through 
-                    this UI will show their actual filenames.
-                    """)
-                
-                # Show expandable section with full IDs
-                with st.expander("🔍 View Full Document IDs"):
-                    for info in doc_info:
-                        st.code(info['Full ID'])
+                # Show the table
+                st.dataframe(df, use_container_width=True)
                 
             else:
                 # Fallback: Try a simple query to see if documents exist

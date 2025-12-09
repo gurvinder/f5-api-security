@@ -54,6 +54,8 @@ def models():
         st.session_state["connection_status"] = None
     if "models_fetched" not in st.session_state:
         st.session_state["models_fetched"] = False
+    if "previous_xc_url" not in st.session_state:
+        st.session_state["previous_xc_url"] = st.session_state["xc_url"]
 
     # XC URL input field
     st.subheader("LlamaStack Configuration")
@@ -66,6 +68,9 @@ def models():
         on_change=lambda: st.session_state.update({"models_fetched": False})
     )
     
+    # Check if URL actually changed (not just initial load)
+    url_changed = xc_url != st.session_state["previous_xc_url"]
+    
     # Update session state if URL changed
     if xc_url != st.session_state["xc_url"]:
         st.session_state["xc_url"] = xc_url
@@ -76,13 +81,20 @@ def models():
         with st.spinner("🔄 Fetching models from XC URL..."):
             fetch_models_from_xc_url()
         st.session_state["models_fetched"] = True
+        st.session_state["previous_xc_url"] = xc_url
+        # Only show the connection status message if URL was explicitly changed
+        if url_changed:
+            st.session_state["show_connection_status"] = True
         st.rerun()
     
-    # Display connection status
-    if st.session_state["connection_status"] == "success":
-        st.success("✅ Connected to LlamaStack endpoint")
-    elif st.session_state["connection_status"] == "error" and st.session_state["models_error"]:
-        st.error(f"❌ {st.session_state['models_error']}")
+    # Display connection status only once after a fetch operation
+    if st.session_state.get("show_connection_status", False):
+        if st.session_state["connection_status"] == "success":
+            st.success("✅ Connected to LlamaStack endpoint")
+        elif st.session_state["connection_status"] == "error" and st.session_state["models_error"]:
+            st.error(f"❌ {st.session_state['models_error']}")
+        # Clear the flag so message doesn't show on subsequent visits
+        st.session_state["show_connection_status"] = False
     
     # Show loading state
     if st.session_state["models_loading"]:
