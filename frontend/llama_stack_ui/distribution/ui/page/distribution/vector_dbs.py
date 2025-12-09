@@ -303,7 +303,7 @@ def _upload_documents_to_database(vector_db_name, uploaded_files, vector_db_id=N
                 RAGDocument(
                     document_id=uploaded_file.name,
                     content=data_url_from_file(uploaded_file),
-                    metadata={"original_filename": uploaded_file.name}  # Store filename in metadata as backup
+                    metadata={"source": uploaded_file.name, "type": "uploaded_file"}  # LlamaStack maps 'source' to chunk_metadata.source
                 )
                 for uploaded_file in uploaded_files
             ]
@@ -366,11 +366,12 @@ def _get_documents_from_pgvector(vector_db_id):
                 # The vector_db_id is used as the table name with underscores replacing hyphens
                 table_name = f"vs_{vector_db_id.replace('-', '_')}"
                 
-                # Try to get original filename from metadata first, fallback to document_id
+                # Query chunk_metadata.source where LlamaStack stores the filename
+                # Fall back to auto-generated document_id if source is null
                 query = f"""
                     SELECT DISTINCT 
                         COALESCE(
-                            document->'metadata'->>'original_filename',
+                            NULLIF(document->'chunk_metadata'->>'source', 'null'),
                             document->'metadata'->>'document_id'
                         ) as document_id
                     FROM {table_name}
