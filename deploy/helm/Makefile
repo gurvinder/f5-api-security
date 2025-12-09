@@ -430,11 +430,6 @@ list-models: depend ## List available models
 	@echo -e "$(BLUE)[INFO]$(NC) Listing available models..."
 	@helm template dummy-release $(RAG_CHART) --set llm-service._debugListModels=true | grep ^model:
 
-.PHONY: list-mcps
-list-mcps: depend ## List available MCP servers
-	@echo -e "$(BLUE)[INFO]$(NC) Listing available MCP servers..."
-	@helm template dummy-release $(RAG_CHART) --set mcp-servers._debugListMcps=true | grep ^MCP
-
 .PHONY: install
 install: ## Install the RAG deployment
 	@if [ -z "$(NAMESPACE)" ]; then echo -e "$(RED)[ERROR]$(NC) NAMESPACE is required for install"; exit 1; fi
