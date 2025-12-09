@@ -81,13 +81,15 @@ oc get route -n <namespace>
 # • API Key: Add authentication if required
 ```
 
-## Document Ingestion
+## Document Management
 
-The Ingestion Service automatically processes documents from multiple sources:
+Documents can be uploaded directly through the UI:
 
-### 📄 Supported Sources
+### 📄 Supported Formats
 - **PDF Documents**: Upload security policies, manuals, and reports
-- **GitHub Repositories**: Fetch documentation from github repos
+- **Text Files**: Plain text documents
+
+Navigate to **Settings → Vector Databases** to create vector databases and upload documents.
 
 ### Architecture diagrams
 ![RAG System Architecture](docs/images/rag-architecture_F5XC.png)

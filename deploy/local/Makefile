@@ -163,10 +163,6 @@ logs-ui: ## Show logs for rag-ui service
 	@echo "$(BLUE)[INFO]$(NC) Showing logs for rag-ui..."
 	@podman-compose logs -f rag-ui
 
-logs-ingestion: ## Show logs for ingestion service
-	@echo "$(BLUE)[INFO]$(NC) Showing logs for ingestion service..."
-	@podman logs rag-ingestion
-
 pull: ## Pull all container images
 	@echo "$(BLUE)[INFO]$(NC) Pulling container images..."
 	@podman-compose pull
@@ -271,15 +267,6 @@ clear-tavily-key: ## Clear the saved TAVILY_SEARCH_API_KEY
 	else \
 		echo "$(BLUE)[INFO]$(NC) No saved TAVILY_SEARCH_API_KEY found."; \
 	fi
-
-ingest: ## Re-run the ingestion service
-	@echo "$(BLUE)[INFO]$(NC) Re-running ingestion service..."
-	@podman-compose up --build rag-ingestion
-	@echo "$(GREEN)[SUCCESS]$(NC) Ingestion completed."
-
-ingest-config: ## Edit the ingestion configuration
-	@echo "$(BLUE)[INFO]$(NC) Opening ingestion configuration..."
-	@$${EDITOR:-vim} ingestion-config.yaml
 
 list-vector-dbs: ## List all vector databases
 	@echo "$(BLUE)[INFO]$(NC) Listing vector databases..."

@@ -57,25 +57,6 @@ services:
     networks:
       - rag-network
 
-
-  # RAG Ingestion Service
-  rag-ingestion:
-    platform: linux/amd64
-    build:
-      context: ../../ingestion-service
-      dockerfile: Containerfile
-    container_name: rag-ingestion
-    depends_on:
-      llamastack:
-        condition: service_started
-    environment:
-      INGESTION_CONFIG: "/config/ingestion-config.yaml"
-    volumes:
-      - ./ingestion-config.yaml:/config/ingestion-config.yaml:ro
-    networks:
-      - rag-network
-    restart: "no"  # Run once and exit
-
   # RAG UI Frontend
   rag-ui:
     platform: linux/amd64
