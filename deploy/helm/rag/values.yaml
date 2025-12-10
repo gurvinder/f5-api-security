@@ -148,8 +148,6 @@ pgvector:
 llama-stack:
   image:
     tag: 0.2.23  # Match frontend client version (was 0.2.22)
-  secrets:
-    TAVILY_SEARCH_API_KEY: "Paste-your-key-here"
 
 
 # Suggested Questions Configuration (Optional)

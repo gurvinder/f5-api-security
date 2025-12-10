@@ -152,13 +152,8 @@ pgvector:
 
 # Llama Stack Configuration
 llama-stack:
-  secrets:
-    # TAVILY Search API Key for web search functionality
-    TAVILY_SEARCH_API_KEY: "Paste-your-key-here"
-    
-    # Add other API keys as needed
-    # OPENAI_API_KEY: "your_openai_key_here"
-    # ANTHROPIC_API_KEY: "your_anthropic_key_here"
+  image:
+    tag: 0.2.23  # Match frontend client version
 
 # Suggested Questions Configuration (Optional)
 # These questions appear in the chat UI when users select a database

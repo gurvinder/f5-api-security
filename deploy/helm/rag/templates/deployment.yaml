@@ -36,10 +36,6 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             {{- toYaml .Values.env | nindent 12 }}
-            {{- if (index .Values "llama-stack").secrets.TAVILY_SEARCH_API_KEY }}
-            - name: TAVILY_SEARCH_API_KEY
-              value: {{ (index .Values "llama-stack").secrets.TAVILY_SEARCH_API_KEY | quote }}
-            {{- end }}
             {{- if .Values.suggestedQuestions }}
             - name: RAG_QUESTION_SUGGESTIONS
               valueFrom:
