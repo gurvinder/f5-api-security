@@ -140,8 +140,6 @@ List minimum hardware requirements.
 
 *The instructions below will deploy this quickstart to your OpenShift environment.*
 
-*Please see the [local deployments](#local-deployment) section for additional deployment options.* 
-
 ### Prerequisites
 - [huggingface-cli](https://huggingface.co/docs/huggingface_hub/guides/cli) (optional)
 - [Hugging Face Token](https://huggingface.co/settings/tokens)
