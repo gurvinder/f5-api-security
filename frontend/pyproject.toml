@@ -1,9 +1,9 @@
 [project]
 name = "llama_stack_ui"
 version = "6"
-description = "Local LLM stack with UI for RAG-based applications"
+description = "Application to test F5 XC Cloud"
 authors = [
-    { name = "Saurabh Agarwal", email = "sauagarw@redhat.com" }
+    { name = "Ganesh Murthy", email = "gmurthy@redhat.com" }
 ]
 readme = "README.md"
 requires-python = ">=3.12"
