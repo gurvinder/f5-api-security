@@ -18,3 +18,4 @@ spec:
       machineconfiguration.openshift.io/role: "worker-hp"
     priority: 30
     profile: openshift-node-hugepages
+

@@ -319,3 +319,4 @@ spec:
 #      nodePort: 30502
 #  selector:
 #    statefulset.kubernetes.io/pod-name: ver-2
+

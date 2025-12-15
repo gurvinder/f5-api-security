@@ -36,19 +36,12 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             {{- toYaml .Values.env | nindent 12 }}
-            {{- if (index .Values "llama-stack").secrets.TAVILY_SEARCH_API_KEY }}
-            - name: TAVILY_SEARCH_API_KEY
-              value: {{ (index .Values "llama-stack").secrets.TAVILY_SEARCH_API_KEY | quote }}
-            {{- end }}
-            {{- if .Values.chatEndpoint }}
-            - name: DEFAULT_CHAT_ENDPOINT
-              value: {{ .Values.chatEndpoint.url | quote }}
-            - name: DEFAULT_MODEL
-              value: {{ .Values.chatEndpoint.modelId | quote }}
-            {{- if .Values.chatEndpoint.apiKey }}
-            - name: DEFAULT_API_KEY
-              value: {{ .Values.chatEndpoint.apiKey | quote }}
-            {{- end }}
+            {{- if .Values.suggestedQuestions }}
+            - name: RAG_QUESTION_SUGGESTIONS
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "f5-ai-security.fullname" . }}-suggested-questions
+                  key: RAG_QUESTION_SUGGESTIONS
             {{- end }}
           ports:
             - name: http
