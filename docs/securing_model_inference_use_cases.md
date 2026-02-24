@@ -1,106 +1,107 @@
-<!-- omit from toc -->
-# Securing AI Model Inference Endpoints with F5 Distributed Cloud WAAP
+# Securing AI model inference endpoints with F5 Distributed Cloud WAAP
 
-This lab guides you through configuring **F5 Distributed Cloud (XC) Web Application and API Protection (WAAP)** features to secure a Generative AI model inference endpoint (represented by `llamastack.f5-ai-security` running in a vK8s environment).
+This guide walks you through configuring **F5 Distributed Cloud (XC) Web Application and API Protection (WAAP)** features to secure a generative AI model inference endpoint running on Red Hat OpenShift AI.
 
-**Objective:** Secure the inference endpoint from prompt injection, shadow APIs, sensitive data leakage, and automated attacks.
+**Objective:** Secure the inference endpoint against cross-site scripting (XSS), shadow APIs, and denial-of-service (DoS) attacks.
 
-<!-- omit from toc -->
 ## Table of contents
 
-<!-- TOC depthFrom:2 depthTo:3 -->
-- [🧩 Prerequisites](#-prerequisites)
-- [Step 0: Initial Load Balancer Configuration and Inference Endpoint Verification](#step-0-initial-load-balancer-configuration-and-inference-endpoint-verification)
-  - [Task 0.1: Verify llamastack Service Running in OpenShift](#task-01-verify-llamastack-service-running-in-openshift)
+- [Prerequisites](#prerequisites)
+- [Step 0: Initial load balancer configuration and endpoint verification](#step-0-initial-load-balancer-configuration-and-endpoint-verification)
+  - [Task 0.1: Verify the LlamaStack service in OpenShift](#task-01-verify-the-llamastack-service-in-openshift)
   - [Task 0.2: Set up the HTTP Load Balancer](#task-02-set-up-the-http-load-balancer)
-  - [Verification of Inference Endpoint Access](#verification-of-inference-endpoint-access)
-- [🧱 Use Case 1 — Protecting the vLLM Inference Endpoint using WAF](#-use-case-1--protecting-the-vllm-inference-endpoint-using-waf)
-  - [Task 1 — Simulate an Unmitigated Attack via Swagger UI (Before WAF)](#task-1--simulate-an-unmitigated-attack-via-swagger-ui-before-waf)
-  - [Task 2 — Enable a WAF Policy on the F5 XC Load Balancer](#task-2--enable-a-waf-policy-on-the-f5-xc-load-balancer)
-  - [Task 3 — Simulate a Mitigated Attack via Swagger UI (After WAF)](#task-3--simulate-a-mitigated-attack-via-swagger-ui-after-waf)
-  - [Notes \& Troubleshooting](#notes--troubleshooting)
-  - [Appendix — Example Minimal Request (cURL)](#appendix--example-minimal-request-curl)
-- [🧾Use Case 2: Enforcing API Specification, Sensitive Data Detection, and Preventing Shadow APIs](#use-case-2-enforcing-api-specification-sensitive-data-detection-and-preventing-shadow-apis)
-  - [Scenario](#scenario)
-  - [Task 1: Simulate Allowed Access to a Shadow API](#task-1-simulate-allowed-access-to-a-shadow-api)
-  - [Task 2: API Definition](#task-2-api-definition)
-  - [Task 3: Enabling API Inventory and Blocking Shadow APIs](#task-3-enabling-api-inventory-and-blocking-shadow-apis)
-  - [Task 4: Simulate Blocked Access to a Shadow API](#task-4-simulate-blocked-access-to-a-shadow-api)
+  - [Verification of inference endpoint access](#verification-of-inference-endpoint-access)
+- [Use Case 1: Protecting the inference endpoint with WAF](#use-case-1-protecting-the-inference-endpoint-with-waf)
+  - [Task 1.1: Simulate an unmitigated XSS attack (before WAF)](#task-11-simulate-an-unmitigated-xss-attack-before-waf)
+  - [Task 1.2: Enable a WAF policy on the Load Balancer](#task-12-enable-a-waf-policy-on-the-load-balancer)
+  - [Task 1.3: Simulate a mitigated XSS attack (after WAF)](#task-13-simulate-a-mitigated-xss-attack-after-waf)
+  - [Notes and troubleshooting](#notes-and-troubleshooting)
+  - [Appendix: Example cURL request](#appendix-example-curl-request)
+- [Use Case 2: Enforcing API specification and preventing shadow APIs](#use-case-2-enforcing-api-specification-and-preventing-shadow-apis)
+  - [Task 2.1: Simulate allowed access to a shadow API](#task-21-simulate-allowed-access-to-a-shadow-api)
+  - [Task 2.2: Create an API Definition](#task-22-create-an-api-definition)
+  - [Task 2.3: Enable API Inventory and block shadow APIs](#task-23-enable-api-inventory-and-block-shadow-apis)
+  - [Task 2.4: Simulate blocked access to a shadow API](#task-24-simulate-blocked-access-to-a-shadow-api)
   - [Summary](#summary)
-- [⚙️Use Case 3: Preventing Denial of Service (DoS) Attacks via Rate Limiting](#️use-case-3-preventing-denial-of-service-dos-attacks-via-rate-limiting)
-  - [Scenario](#scenario-1)
-  - [Task 3.1: Simulate Unmitigated Excessive Requests](#task-31-simulate-unmitigated-excessive-requests)
-  - [Task 3.2: Configure Rate Limiting](#task-32-configure-rate-limiting)
-  - [Task 3.3: Simulate Mitigated Excessive Requests](#task-33-simulate-mitigated-excessive-requests)
----
-
-## 🧩 Prerequisites
-
-- Operational **F5 Distributed Cloud Account** and Console access  
-- **kubectl** installed locally
+- [Use Case 3: Preventing DoS attacks with rate limiting](#use-case-3-preventing-dos-attacks-with-rate-limiting)
+  - [Task 3.1: Simulate unmitigated excessive requests](#task-31-simulate-unmitigated-excessive-requests)
+  - [Task 3.2: Configure rate limiting](#task-32-configure-rate-limiting)
+  - [Task 3.3: Simulate mitigated excessive requests](#task-33-simulate-mitigated-excessive-requests)
 
 ---
 
-## Step 0: Initial Load Balancer Configuration and Inference Endpoint Verification
+## Prerequisites
 
-This step ensures the model serving application is exposed via an F5 Distributed Cloud HTTP Load Balancer (LB).
+- Operational **F5 Distributed Cloud** account and Console access
+- **kubectl** or **oc** CLI installed locally
+- HTTP Load Balancer and LLM inference service deployed on Red Hat OpenShift AI (see [F5 XC deployment guide](f5_xc_deployment.md))
 
-### Task 0.1: Verify llamastack Service Running in OpenShift
+---
 
-1. **Check Service Status**  
-   - Ensure that the `llamastack` service is deployed and running properly within your OpenShift project or namespace.  
-   - Run the following commands to verify that the pods, service, and endpoints are active:
+## Step 0: Initial load balancer configuration and endpoint verification
 
-```bash
-oc get pods -n <your-namespace> | grep llama
-oc get svc -n <your-namespace> | grep llama
-oc get endpoints -n <your-namespace> | grep llama
-```
+This step ensures the model serving application is exposed via an F5 Distributed Cloud HTTP Load Balancer.
 
-Expected Output:
-```
-llamastack-f5-ai-security   ClusterIP   10.0.142.12   <none>   8080/TCP   2d
-llamastack-f5-ai-security-7d9c7b9d9f   1/1     Running   0     2d
-```
+### Task 0.1: Verify the LlamaStack service in OpenShift
 
-2. **Confirm Service Accessibility (Internal Test)**  
-   - You can test the inference service directly from within the OpenShift cluster to confirm it’s responding before integrating with F5 Distributed Cloud:
+1. **Check service status**
 
-```bash
-oc run test-client --rm -i --tty --image=registry.access.redhat.com/ubi9/ubi-minimal -- curl -s http://llamastack-f5-ai-security.<your-namespace>.svc.cluster.local:8080/v1/openai/v1/models | jq
-```
+   Ensure that the `llamastack` service is deployed and running in your OpenShift namespace:
 
-Expected JSON output should show available models such as `Llama-3.2-1B-Instruct-quantized.w8a8`.
+   ```bash
+   oc get pods -n <your-namespace> | grep llama
+   oc get svc -n <your-namespace> | grep llama
+   oc get endpoints -n <your-namespace> | grep llama
+   ```
+
+   Expected output:
+
+   ```
+   llamastack-<your-namespace>   ClusterIP   10.0.142.12   <none>   8080/TCP   2d
+   llamastack-<your-namespace>-7d9c7b9d9f   1/1     Running   0     2d
+   ```
+
+2. **Confirm service accessibility (internal test)**
+
+   Test the inference service from within the cluster:
+
+   ```bash
+   oc run test-client --rm -i --tty --image=registry.access.redhat.com/ubi9/ubi-minimal \
+     -- curl -s http://llamastack-<your-namespace>.<your-namespace>.svc.cluster.local:8080/v1/openai/v1/models | jq
+   ```
+
+   The JSON response should list available models such as `Llama-3.2-1B-Instruct-quantized.w8a8`.
 
 ### Task 0.2: Set up the HTTP Load Balancer
 
-1. Navigate to **Multi-Cloud App Connect → HTTP Load Balancers**  
-2. Click **Add HTTP Load Balancer**
-   - **Name:** `ai-inference-lb`  
-   - **Domain Name:** `your-xc-endpoint.com`
+1. Navigate to **Multi-Cloud App Connect → HTTP Load Balancers**.
+2. Click **Add HTTP Load Balancer**.
+   - **Name:** `ai-inference-lb`
+   - **Domain Name:** `<your-xc-endpoint>`
 3. **Configure Origin Pool:**
-   - Add Item → name the pool  
+   - Click **Add Item** and name the pool.
 4. **Configure Origin Server:**
-   - Type: *K8s Service Name of Origin Server on given Sites*  
-   - Service Name: `llamastack.f5-ai-security`  
-   - Virtual Site Type: `yourside`  (ex. `system/ericji-gpu-ai-pod` )
-   - Network: `Outside Network`  
+   - Type: *K8s Service Name of Origin Server on given Sites*
+   - Service Name: `llamastack.<your-namespace>`
+   - Virtual Site Type: Select your site (e.g., `system/<your-site-name>`)
+   - Network: `Outside Network`
 
-
-![Hipster Origin pool](images/llamastack-origin-pool.png)
+   ![F5 XC Origin Pool configuration for LlamaStack service](images/llamastack-origin-pool.png)
 
    - Port: `8321`
-![Hipster Origin  port](images/hipster-origin-pool_port.png)
 
+   ![Origin Pool port configuration set to 8321](images/hipster-origin-pool_port.png)
 
-5. **Save LB:** Continue → Apply → Save and Exit. Record the generated **CNAME**.
+5. **Save:** Continue → Apply → Save and Exit. Record the generated **CNAME**.
 
-### Verification of Inference Endpoint Access
+### Verification of inference endpoint access
 
 ```bash
-curl -sS http://your-xc-endpoint.com/v1/openai/v1/models | jq
+curl -sS http://<your-xc-endpoint>/v1/openai/v1/models | jq
 ```
-Expected Output:
+
+Expected output:
+
 ```json
 {
   "data": [
@@ -122,119 +123,130 @@ Expected Output:
 
 ---
 
-## 🧱 Use Case 1 — Protecting the vLLM Inference Endpoint using WAF
+## Use Case 1: Protecting the inference endpoint with WAF
 
-**Scenario:** The LLM inference endpoint is susceptible to dynamic attacks, such as Cross‑Site Scripting (XSS), which could allow malicious scripts to be rendered and executed, posing an unacceptable security risk. This guide shows how to use the F5 Distributed Cloud (XC) Web Application Firewall (WAF) to mitigate the vulnerability.
+**Scenario:** The LLM inference endpoint is susceptible to dynamic attacks such as Cross-Site Scripting (XSS), which could allow malicious scripts to be rendered and executed. This use case demonstrates how to apply an F5 XC Web Application Firewall (WAF) policy to block such attacks.
 
----
+### Task 1.1: Simulate an unmitigated XSS attack (before WAF)
 
-### Task 1 — Simulate an Unmitigated Attack via Swagger UI (Before WAF)
+Simulate an XSS attack against the unprotected endpoint using Swagger UI.
 
-In this task you will simulate an XSS attack against the unprotected LLM endpoint using the interactive API documentation (Swagger UI).
-1. **Navigate to the Swagger UI**  
-   Open a browser tab and go to:  
-   `http://your-xc-endpoint.com/docs#/default/chat_completion_v1_inference_chat_completion_post`
+1. **Navigate to the Swagger UI**
 
-2. **Access the Endpoint**  
-   Expand the Chat Completion endpoint (`/v1/inference/chat-completion`) in the Swagger UI.
+   Open a browser and go to:
+   `http://<your-xc-endpoint>/docs#/default/chat_completion_v1_inference_chat_completion_post`
 
-3. **Initiate Testing**  
+2. **Access the endpoint**
+
+   Expand the Chat Completion endpoint (`/v1/inference/chat-completion`).
+
+3. **Initiate testing**
+
    Click the **Try it out** button.
 
-![Swagger Chat](images/swagger_chat.png)
+   ![Swagger UI showing the Chat Completion endpoint with Try it out button](images/swagger_chat.png)
 
-3. **Insert Malicious Payload**  
+4. **Insert malicious payload**
 
-   Copy and paste the following JSON payload into the **Request body**.  
-   This payload injects a simple XSS `<script>` into the `content` field to demonstrate the vulnerability:
+   Copy and paste the following JSON payload into the **Request body**. This payload injects a `<script>` tag into the `content` field:
 
-```json
-{
-  "model_id": "RedHatAI/Llama-3.2-1B-Instruct-quantized.w8a8",
-  "messages": [
-    {
-      "role": "user",
-      "content": "What is F5 API security? <script>alert(\"XSS\")</script>",
-      "context": "Injection test"
-    }
-  ],
-  "sampling_params": {
-    "strategy": { "type": "greedy" },
-    "max_tokens": 50,
-    "repetition_penalty": 1,
-    "stop": ["</script>"]
-  },
-  "stream": false,
-  "logprobs": { "top_k": 0 }
-}
-```
+   ```json
+   {
+     "model_id": "RedHatAI/Llama-3.2-1B-Instruct-quantized.w8a8",
+     "messages": [
+       {
+         "role": "user",
+         "content": "What is F5 API security? <script>alert(\"XSS\")</script>",
+         "context": "Injection test"
+       }
+     ],
+     "sampling_params": {
+       "strategy": { "type": "greedy" },
+       "max_tokens": 50,
+       "repetition_penalty": 1,
+       "stop": ["</script>"]
+     },
+     "stream": false,
+     "logprobs": { "top_k": 0 }
+   }
+   ```
 
-> Replace `model` and other fields with the values required by your deployment if different.
-4. **Execute the Attack**  
+   > Replace `model_id` and other fields as needed for your deployment.
+
+5. **Execute the attack**
+
    Click **Execute** in Swagger UI.
 
-5. **Review Unmitigated Result**  
-   Inspect the **Server Response**. If the response body contains the injected `<script>` (or the script is rendered), the endpoint is vulnerable to XSS.
+6. **Review unmitigated result**
 
-![Swagger Chat Response](images/swagger_chat_response.png)
+   Inspect the **Server Response**. If the response body contains the injected `<script>` tag (or the script is rendered), the endpoint is vulnerable to XSS.
 
-### Task 2 — Enable a WAF Policy on the F5 XC Load Balancer
+   ![Swagger UI response showing the unblocked XSS payload in the server response](images/swagger_chat_response.png)
 
-Attach a pre-built WAF policy to the HTTP Load Balancer fronting the vLLM service.
+### Task 1.2: Enable a WAF policy on the Load Balancer
 
-1. **Navigate to Load Balancer Management**  
-   In the F5 Distributed Cloud Console, go to **Web App & API Protection → Load Balancers → HTTP Load Balancers** (under *Manage*).
+Attach a WAF policy to the HTTP Load Balancer fronting the vLLM service.
 
-2. **Manage Configuration**  
-   Find the HTTP Load Balancer servicing the vLLM endpoint. Click the action menu (three dots `…`) in the *Action* column, then select **Manage Configuration**.
+1. **Navigate to Load Balancer management**
 
-3. **Edit Configuration**  
+   In the F5 XC Console, go to **Web App & API Protection → Load Balancers → HTTP Load Balancers** (under *Manage*).
+
+2. **Manage configuration**
+
+   Find the HTTP Load Balancer for the vLLM endpoint. Click the action menu (`…`) → **Manage Configuration**.
+
+3. **Edit configuration**
+
    Click **Edit Configuration**.
 
-4. **Enable WAF**  
+4. **Enable WAF**
+
    From the left navigation, select **Web Application Firewall**.
-![Load balancer WAF](images/ericji-gpu-ai-vllm-lb2.png)
 
-1. **Create a new WAF Object**  
-   Toggle **Enable** for the Web Application Firewall, then create a new WAF object (for example `waf-ericji-vllm`)
-![WAF policy](images/waf-ericji-vllm.png)
-   - **Note:** In lab environments, settings such as *Suspicious* or *Good Bot* are sometimes set to *Ignore* to reduce false positives.
+   ![Load Balancer configuration page showing the WAF section](images/ericji-gpu-ai-vllm-lb2.png)
 
-1. **Save Changes**  
+5. **Create a new WAF object**
+
+   Toggle **Enable** for the Web Application Firewall, then create a new WAF object (e.g., `waf-<your-prefix>-vllm`).
+
+   ![WAF policy configuration with detection settings](images/waf-ericji-vllm.png)
+
+   > In lab environments, settings such as *Suspicious* or *Good Bot* are sometimes set to *Ignore* to reduce false positives.
+
+6. **Save changes**
+
    Go to **Other Settings** (left navigation), then click **Save and Exit**.
 
-
-
----
-
-### Task 3 — Simulate a Mitigated Attack via Swagger UI (After WAF)
+### Task 1.3: Simulate a mitigated XSS attack (after WAF)
 
 Verify the WAF policy successfully blocks the XSS injection.
 
-1. **Return to Swagger UI**  
-   Use the Swagger tab from Task 1 (or refresh the page):  
-   `http://your-xc-endpoint.com/docs#/default/chat_completion_v1_inference_chat_completion_post`
+1. **Return to Swagger UI**
 
-2. **Access the Endpoint**  
-   Expand the `/v1/inference/chat-completion` endpoint and click **Try it out**.
+   Use the Swagger tab from Task 1.1 (or refresh the page):
+   `http://<your-xc-endpoint>/docs#/default/chat_completion_v1_inference_chat_completion_post`
 
-3. **Re-Execute the Attack**  
-   Paste the exact same malicious JSON payload used in Task 1 into the Request body.
+2. **Access the endpoint**
 
-4. **Execute and Review Mitigated Result**  
+   Expand `/v1/inference/chat-completion` and click **Try it out**.
 
-   Click **Execute**. Inspect the **Server Response**. The WAF should have intercepted and blocked the malicious script; you will typically see a block message or an altered response indicating the request was rejected or sanitized.
+3. **Re-execute the attack**
 
-![XSS Response](images/xss-response.png)
+   Paste the exact same malicious JSON payload from Task 1.1 into the Request body.
 
-5. **Check with event log from F5 Distributed Cloud Security Analytics**  
+4. **Execute and review mitigated result**
 
-![XSS Event](images/xss-event.png)
+   Click **Execute**. The WAF should intercept and block the malicious script. You will typically see a block message or an altered response indicating the request was rejected.
 
+   ![Server response showing the WAF blocking the XSS attack](images/xss-response.png)
 
----
+5. **Check the event log**
 
-### Notes & Troubleshooting
+   View the detection event in **F5 Distributed Cloud Security Analytics**.
+
+   ![F5 XC Security Analytics showing the XSS detection event](images/xss-event.png)
+
+### Notes and troubleshooting
 
 - If the block is not observed:
   - Confirm the WAF policy is attached to the **correct** HTTP Load Balancer (matching host/path).
@@ -244,14 +256,12 @@ Verify the WAF policy successfully blocks the XSS injection.
 
 - For lab-friendly testing, consider using a non-production model and a low-impact payload. Use caution when testing production systems.
 
----
+### Appendix: Example cURL request
 
-### Appendix — Example Minimal Request (cURL)
-
-Below is an example `curl` command that sends the same malicious payload directly to the inference endpoint (use only in controlled/test environments):
+The following `curl` command sends the same malicious payload directly to the inference endpoint. Use only in controlled or test environments.
 
 ```bash
-curl -X 'POST' 'http://your-xc-endpoint.com/v1/inference/chat-completion' \
+curl -X 'POST' 'http://<your-xc-endpoint>/v1/inference/chat-completion' \
   -H 'Content-Type: application/json' \
   -d '{
         "model_id": "RedHatAI/Llama-3.2-1B-Instruct-quantized.w8a8",
@@ -268,195 +278,225 @@ curl -X 'POST' 'http://your-xc-endpoint.com/v1/inference/chat-completion' \
 
 ---
 
-## 🧾Use Case 2: Enforcing API Specification, Sensitive Data Detection, and Preventing Shadow APIs
+## Use Case 2: Enforcing API specification and preventing shadow APIs
 
 ### Scenario
-An updated model inference service (KServe/vLLM) introduced a new, unapproved, or unvalidated API endpoint (e.g., a version check endpoint) which was not intended for external release. This unapproved endpoint is considered a **Shadow API**. We need to leverage **F5 Distributed Cloud (XC) API Security** to ensure that only documented, approved endpoints can be consumed, thereby protecting the Model Inference stack.
+
+An updated model inference service (KServe/vLLM) introduced a new, unapproved API endpoint (e.g., a version check endpoint) that was not intended for external release. This unapproved endpoint is a **shadow API**. This use case demonstrates how to use **F5 XC API Security** to ensure that only documented, approved endpoints can be consumed.
 
 **Prerequisite:** Ensure the HTTP Load Balancer and the LLM inference service are deployed on Red Hat OpenShift AI.
 
----
+### Task 2.1: Simulate allowed access to a shadow API
 
-### Task 1: Simulate Allowed Access to a Shadow API
-Verify that the unapproved endpoint is currently accessible before security controls are applied.
+Verify that the unapproved endpoint is accessible before security controls are applied.
 
-1. Use a browser or `curl` to test the Shadow API endpoint:  
-   - **Shadow API:** `GET http://your-xc-endpoint.com/v1/version`  
-   - The response should return version information, proving that the Shadow API is currently accessible.
+1. Use a browser or `curl` to test the shadow API endpoint:
 
+   ```bash
+   curl -sS http://<your-xc-endpoint>/v1/version | jq
+   ```
 
-![Get Version API](images/get_version_api.png)
+   The response should return version information, confirming the shadow API is currently accessible.
 
-2. *(Optional)* Use the Quickstart’s Swagger UI to confirm the endpoint is exposed:  
-   - **Swagger UI:** `http://your-xc-endpoint.com/docs`
+   ![Browser showing the version endpoint returning data before API spec enforcement](images/get_version_api.png)
 
----
+2. *(Optional)* Use the Swagger UI at `http://<your-xc-endpoint>/docs` to confirm the endpoint is exposed.
 
-### Task 2: API Definition
+### Task 2.2: Create an API Definition
+
 Create an API Definition using the approved OpenAPI specification for the model inference service.
 
-1. Navigate to **Web App & API Protection** in the F5 Distributed Cloud console.
+1. Navigate to **Web App & API Protection** in the F5 XC Console.
 2. Go to **Manage → API Security → API Definition**.
 3. Click **Add API Definition**.
-![API Definition](images/API_definition.png)
+
+   ![F5 XC API Definition creation page](images/API_definition.png)
+
 4. Enter a name (e.g., `model-api-def`).
 5. Under **OpenAPI Specification Files**, click **Add Item**.
-![OpenAPI upload](images/OpenAPI_upload.png)
-1. Upload/select the approved file: `openapi-swagger-v3-fixed2-version.json`.
-2. Click **Save and Exit**.
 
----
+   ![OpenAPI specification file upload dialog](images/OpenAPI_upload.png)
 
-### Task 3: Enabling API Inventory and Blocking Shadow APIs
-Enable API Inventory & Discovery on the Load Balancer fronting the inference endpoint.
+6. Upload or select the approved file: `openapi-swagger-v3-fixed2-version.json`.
+7. Click **Save and Exit**.
+
+### Task 2.3: Enable API Inventory and block shadow APIs
+
+Enable API Inventory and Discovery on the Load Balancer fronting the inference endpoint.
 
 1. Go to **Manage → Load Balancers → HTTP Load Balancers**.
 2. Locate the Load Balancer for the LLM service → click **… → Manage Configuration**.
 3. Click **Edit Configuration**.
 4. Select **API Protection** from the left navigation.
 5. In the first API Definition section, select **Enable**.
-6. In the second API Definition section, select the definition created in Task 2.
-![API Protection](images/API_protection.png)
+6. In the second API Definition section, select the definition created in Task 2.2.
+
+   ![API Protection configuration with API Definition enabled](images/API_protection.png)
 
 7. Under **Validation**, choose **API Inventory**, then click **View Configuration**.
-   ![API validation](images/API_validation.png)
+
+   ![API Inventory validation settings](images/API_validation.png)
+
 8. Change **Fall Through Mode** to **Custom**.
-9.  Under **Custom Fall Through Rule List**, choose **Configure**.
-       ![Fall through](images/fall_through.png)
+9. Under **Custom Fall Through Rule List**, choose **Configure**.
+
+   ![Fall Through Mode configuration dialog](images/fall_through.png)
 
 10. Add an item with:
-    - **Name:** block-shadow  
-    - **Action:** Block  
-    - **Type:** Base Path  
-    - **Base Path:** `/v1`  
-       ![Block shadow](images/block_shadow.png)
+    - **Name:** `block-shadow`
+    - **Action:** Block
+    - **Type:** Base Path
+    - **Base Path:** `/v1`
+
+    ![Shadow API blocking rule configured with base path /v1](images/block_shadow.png)
 
 11. Click **Apply**.
 12. Select **Other Settings**, then **Save and Exit**.
 
----
+### Task 2.4: Simulate blocked access to a shadow API
 
-### Task 4: Simulate Blocked Access to a Shadow API
-After enforcing the API spec, the Shadow API should now be blocked.
+After enforcing the API spec, the shadow API should be blocked.
 
-1. Test using browser or `curl`:  
-   - `GET http://your-xc-endpoint.com/v1/version`
-2. The request should now be blocked, confirming that undocumented/unauthorized endpoints are prevented.
-    ![Block 403](images/get_version_api_403.png)
----
+1. Test using browser or `curl`:
+
+   ```bash
+   curl -sS http://<your-xc-endpoint>/v1/version
+   ```
+
+2. The request should now return a `403 Forbidden`, confirming that undocumented endpoints are blocked.
+
+   ![Browser showing 403 Forbidden response when accessing the shadow API after enforcement](images/get_version_api_403.png)
 
 ### Summary
-Enforcing the API specification acts like a strict **security manifest** for a production line. Anything not explicitly approved in the OpenAPI file (`openapi-swagger-v3-fixed2-version.json`) is immediately rejected by **F5 API Security**, preventing the exposure of Shadow APIs.
 
-
+Enforcing the API specification acts as a strict **security manifest**. Any endpoint not explicitly approved in the OpenAPI file (`openapi-swagger-v3-fixed2-version.json`) is immediately rejected by F5 XC API Security, preventing exposure of shadow APIs.
 
 ---
 
-## ⚙️Use Case 3: Preventing Denial of Service (DoS) Attacks via Rate Limiting
+## Use Case 3: Preventing DoS attacks with rate limiting
 
 ### Scenario
-An LLM inference endpoint, running on OpenShift AI and exposed at [http://your-xc-endpoint.com](http://your-xc-endpoint.com), experiences performance degradation due to a high volume of requests from a single client source, potentially caused by accidental loops or intentional abuse.  
-We will limit requests to a specific endpoint to **10 requests per client per minute**.
 
-**Selected Endpoint for Rate Limiting:** `/v1/inference/chat-completion`  
-*(This is the specific LLM inference path targeted for protection.)*
+An LLM inference endpoint exposed at `http://<your-xc-endpoint>` experiences performance degradation due to a high volume of requests from a single client, potentially caused by accidental loops or intentional abuse. This use case configures a rate limit of **10 requests per client per minute** on the inference endpoint.
 
----
+**Target endpoint:** `/v1/inference/chat-completion`
 
-### Task 3.1: Simulate Unmitigated Excessive Requests
-This task demonstrates that without F5 XC rate limiting configured, the selected LLM inference endpoint will accept an unlimited number of requests from a single client.
+### Task 3.1: Simulate unmitigated excessive requests
 
-1. **Navigate to the Swagger URL:**  
-   Open a browser tab and navigate to [http://your-xc-endpoint.com/docs](http://your-xc-endpoint.com/docs).
-2. **Access the Target Endpoint:**  
+Demonstrate that without rate limiting, the endpoint accepts unlimited requests from a single client.
 
-   Within the Swagger page, navigate and expand the selected endpoint (e.g., `/v1/inference/chat-completion`). Click **Try it out**.
-   
-![Swagger Chat](images/swagger_chat.png)
+1. **Navigate to the Swagger UI**
 
-3.  **Insert Payload**  
+   Open a browser and go to `http://<your-xc-endpoint>/docs`.
 
-   Copy and paste the following JSON payload into the **Request body**.  
+2. **Access the target endpoint**
 
-```json
-{
-  "model_id": "RedHatAI/Llama-3.2-1B-Instruct-quantized.w8a8",
-  "messages": [
-    {"role": "user", "content": "Hello"}
-  ]
-}
-```
-> Replace `model` and other fields with the values required by your deployment if different.
+   Expand the `/v1/inference/chat-completion` endpoint and click **Try it out**.
 
-4. **Execute Rapid Requests:**  
-   Click the **Execute** button repeatedly, simulating excessive requests (e.g., click Execute 10 or more times within 1 minute).
+   ![Swagger UI showing the chat completion endpoint](images/swagger_chat.png)
 
-![Swagger Chat Execute](images/chat_execute.png)
+3. **Insert payload**
 
-5. **Review Unmitigated Result:**  
-   Observe the **Response Body** for each execution. Since no rate limiting is enforced, every request should be processed and return a `200 OK` status.
+   Paste the following JSON payload into the **Request body**:
 
-📸 *[Insert Screen Capture of Unmitigated Swagger Response showing >10 successful 200 OK responses]*
+   ```json
+   {
+     "model_id": "RedHatAI/Llama-3.2-1B-Instruct-quantized.w8a8",
+     "messages": [
+       {"role": "user", "content": "Hello"}
+     ]
+   }
+   ```
 
----
+   > Replace `model_id` with the value for your deployment if different.
 
-### Task 3.2: Configure Rate Limiting
-This task enables the **API Rate Limit** feature on the **F5 XC HTTP Load Balancer** to protect the selected vLLM inference endpoint.
+4. **Execute rapid requests**
 
-1. **Access Load Balancer Configuration:**  
-   In the F5 Distributed Cloud Console, navigate to **Web App & API Protection → Load Balancers → HTTP Load Balancers** under the *Manage* section.
-2. **Manage and Edit Configuration:**  
-   Locate the HTTP Load Balancer serving `your-xc-endpoint.com`. Click the three dots (…) in the *Action* column, then select **Manage Configuration → Edit Configuration**.
-3. **Navigate to Common Security Controls:**  
-   Using the left-hand navigation, click the **Common Security Controls** link.
-4. **Enable API Rate Limit:**  
-   Locate the **Rate Limiting** area and use the drop-down to select **API Rate Limit**.
+   Click **Execute** repeatedly (10 or more times within 1 minute).
 
-![API rate limit](images/API_rate_limit.png)
+   ![Swagger UI Execute button for rapid request simulation](images/chat_execute.png)
 
-5. **View and Configure:**  
-   In the expanded menu under API Rate Limit, click **View Configuration**. In the resulting window, under *API Endpoints*, click **Configure**.
-6. **Add Item:**  
-   Select **Add Item** within API Endpoints.
-7. **Select LLM Endpoint:**  
-   In the new configuration window, use the drop-down under **API Endpoint** and click **See Suggestions**. In the suggestion results, select the LLM inference endpoint (e.g., `/v1/inference/chat-completion`).
-8. **Define Threshold:**  
-   Update the configuration fields and click **Apply**:
-   - **Method List:** ANY  
-   - **Threshold:** 10  
-   - **Duration:** Minute  
-     *(This configuration will rate limit a client after making 10 requests within 1 minute.)*
+5. **Review unmitigated result**
 
-![API rate limit Endpoint](images/API_rate_limit_endpoint.png)
+   Every request should return `200 OK`, confirming no rate limiting is enforced.
 
-9. **Apply and Save:**
-   - Review the API Endpoint rate limiting rule and click **Apply**.  
-   - Click **Apply** on the API Rate Limit page.  
-   - Navigate to **Other Settings** on the left, then click **Save and Exit** on the bottom right.
+### Task 3.2: Configure rate limiting
 
-📸 *[Insert Screen Capture of F5 XC Configuration showing the Rate Limit rule applied to the LLM endpoint with Threshold 10/Minute]*
+Enable the **API Rate Limit** feature on the F5 XC HTTP Load Balancer.
 
----
+1. **Access Load Balancer configuration**
 
-### Task 3.3: Simulate Mitigated Excessive Requests
-This task verifies that the rate limiting policy is active and successfully blocks requests that exceed the defined threshold.
+   In the F5 XC Console, navigate to **Web App & API Protection → Load Balancers → HTTP Load Balancers** (under *Manage*).
 
-1. **Return to Swagger UI:**  
-   Navigate to the API documentation URL (or refresh the page): [http://your-xc-endpoint.com/docs](http://your-xc-endpoint.com/docs).
-2. **Access the Target Endpoint:**  
-   Navigate and expand the rate-limited endpoint (e.g., `/v1/inference/chat-completion`) and click **Try it out**.
-3. **Execute Rapid Requests:**  
-   Click the **Execute** button more than 10 times within 1 minute.
+2. **Manage and edit configuration**
 
-4. **Review Mitigated Result:**  
-   Observe the **Server Response Body** for each execution:
-   - Requests 1 through 10 should be processed successfully (`200 OK`).  
-   - Requests 11 and subsequent requests within that minute duration should be blocked (e.g., returning a `429 Too Many Requests` status or a comparable block message).
+   Locate the HTTP Load Balancer serving `<your-xc-endpoint>`. Click `…` → **Manage Configuration → Edit Configuration**.
 
-![API rate limit test](images/API_rate_limit_test.png)
+3. **Navigate to Common Security Controls**
 
-5. **Review Dashboad**
+   Click the **Common Security Controls** link in the left navigation.
 
-![API rate limit event](images/API_rate_limit_event.png)
+4. **Enable API Rate Limit**
 
+   In the **Rate Limiting** section, select **API Rate Limit** from the drop-down.
 
+   ![Rate Limiting configuration showing API Rate Limit option](images/API_rate_limit.png)
+
+5. **View and configure**
+
+   Under API Rate Limit, click **View Configuration**. Under *API Endpoints*, click **Configure**.
+
+6. **Add item**
+
+   Click **Add Item** within API Endpoints.
+
+7. **Select the LLM endpoint**
+
+   Use the drop-down under **API Endpoint** → **See Suggestions**, then select `/v1/inference/chat-completion`.
+
+8. **Define threshold**
+
+   Set the following values and click **Apply**:
+   - **Method List:** ANY
+   - **Threshold:** 10
+   - **Duration:** Minute
+
+   This limits each client to 10 requests per minute on the inference endpoint.
+
+   ![API Rate Limit endpoint configuration with threshold of 10 requests per minute](images/API_rate_limit_endpoint.png)
+
+9. **Apply and save**
+
+   - Click **Apply** on the API Endpoint rule.
+   - Click **Apply** on the API Rate Limit page.
+   - Navigate to **Other Settings**, then click **Save and Exit**.
+
+### Task 3.3: Simulate mitigated excessive requests
+
+Verify that the rate limiting policy blocks requests exceeding the threshold.
+
+1. **Return to Swagger UI**
+
+   Navigate to `http://<your-xc-endpoint>/docs` (or refresh the page).
+
+2. **Access the target endpoint**
+
+   Expand `/v1/inference/chat-completion` and click **Try it out**.
+
+3. **Execute rapid requests**
+
+   Click **Execute** more than 10 times within 1 minute.
+
+4. **Review mitigated result**
+
+   Observe the **Server Response** for each execution:
+   - Requests 1 through 10 should return `200 OK`.
+   - Request 11 and subsequent requests within that minute should return `429 Too Many Requests` or a comparable block message.
+
+   ![Rate-limited response showing 429 status after exceeding threshold](images/API_rate_limit_test.png)
+
+5. **Review the dashboard**
+
+   Confirm the rate-limiting events in the F5 XC Console dashboard.
+
+   ![F5 XC dashboard showing rate limiting events for the inference endpoint](images/API_rate_limit_event.png)

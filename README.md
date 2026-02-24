@@ -31,10 +31,6 @@ This AI quickstart shows how to protect AI inference endpoints on Red Hat® Open
 - **Direct Mode RAG** – Retrieval-Augmented Generation without agent complexity
 - **Integration Blueprint** – Secure model inference across hybrid environments
 
-### See it in action
-
-> _Coming soon — an interactive Arcade walkthrough will be linked here._
-
 ### Architecture diagrams
 
 ![Architecture diagram showing the RAG pipeline with F5 XC API Security protecting OpenShift AI inference endpoints](docs/images/rag-architecture_F5XC.png)
@@ -72,8 +68,8 @@ This AI quickstart shows how to protect AI inference endpoints on Red Hat® Open
 
 ### Required user permissions
 
-- Regular user for default deployment; cluster admin for advanced configurations (e.g. F5 XC integration).
-
+- Regular user for default deployment
+- Cluster admin for advanced configurations (e.g. F5 XC integration)
 
 
 ## Deploy
