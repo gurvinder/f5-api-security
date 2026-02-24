@@ -1,6 +1,6 @@
-# Securing Model Inference with F5 Distributed Cloud API Security
+# Secure model inference with F5 Distributed Cloud API Security
 
-Protect AI inference endpoints on Red Hat OpenShift AI using F5 Distributed Cloud (XC) Web App & API Protection and API Security—schema validation, rate limiting, bot defense, and sensitive-data controls without changing your ML workflow.
+Protect AI inference endpoints on Red Hat OpenShift AI with F5 Distributed Cloud WAAP—WAF, API spec enforcement, shadow API prevention, and rate limiting.
 
 ## Table of contents
 
@@ -16,12 +16,12 @@ Protect AI inference endpoints on Red Hat OpenShift AI using F5 Distributed Clou
   - [Installation steps](#installation-steps)
 - [Delete](#delete)
 - [References](#references)
-- [Technical details](#technical-details)
+- [Document management](#document-management)
 - [Tags](#tags)
 
 ## Detailed description
 
-This quickstart shows how to protect AI inference endpoints on Red Hat OpenShift AI using F5 Distributed Cloud (XC) Web App & API Protection (WAAP) and API Security. You deploy a KServe/vLLM model service in OpenShift AI, front it with an F5 XC HTTP Load Balancer, and enforce API discovery, OpenAPI schema validation, rate limiting, bot defense, and sensitive-data controls. OpenShift AI’s single-model serving is KServe-based (recommended for LLMs), and KServe’s HuggingFace/vLLM runtime exposes OpenAI-compatible endpoints, which are secured via F5 XC.
+This AI quickstart shows how to protect AI inference endpoints on Red Hat® OpenShift® AI using F5 Distributed Cloud (XC) Web App & API Protection (WAAP) and API Security. You deploy a KServe/vLLM model service in OpenShift AI, front it with an F5 XC HTTP Load Balancer, and enforce API discovery, OpenAPI schema validation, rate limiting, bot defense, and sensitive-data controls. OpenShift AI’s single-model serving is KServe-based (recommended for LLMs), and KServe’s HuggingFace/vLLM runtime exposes OpenAI-compatible endpoints, which are secured via F5 XC.
 
 **Key components**
 
@@ -31,9 +31,13 @@ This quickstart shows how to protect AI inference endpoints on Red Hat OpenShift
 - **Direct Mode RAG** – Retrieval-Augmented Generation without agent complexity
 - **Integration Blueprint** – Secure model inference across hybrid environments
 
+### See it in action
+
+> _Coming soon — an interactive Arcade walkthrough will be linked here._
+
 ### Architecture diagrams
 
-![RAG System Architecture](docs/images/rag-architecture_F5XC.png)
+![Architecture diagram showing the RAG pipeline with F5 XC API Security protecting OpenShift AI inference endpoints](docs/images/rag-architecture_F5XC.png)
 
 | Layer/Component | Technology | Purpose/Description |
 |-----------------|------------|---------------------|
@@ -52,28 +56,24 @@ This quickstart shows how to protect AI inference endpoints on Red Hat OpenShift
 
 - **LLM inference**: GPU node (e.g. NVIDIA L4 or equivalent; see Supported Models table). The 70B model requires A100 x2 or equivalent.
 - **Embedding-only**: CPU is sufficient for `all-MiniLM-L6-v2`.
+- **Cluster resources**: minimum 8 vCPUs, 32 GB RAM, 100 GB disk for model weights and vector database.
+
+<!-- TODO: verify CPU/RAM/disk values against your actual tested environment -->
 
 ### Minimum software requirements
 
 - OpenShift Client CLI ([oc](https://docs.redhat.com/en/documentation/openshift_container_platform/4.18/html/cli_tools/openshift-cli-oc#installing-openshift-cli))
-- OpenShift Cluster 4.18+
-- OpenShift AI (RHOAI)
+- Red Hat OpenShift Container Platform 4.18+
+- Red Hat OpenShift AI 2.16+ (tested with 2.22)
 - Helm CLI
+
+<!-- TODO: verify the OpenShift AI version matches your tested environment -->
 - Optional: [huggingface-cli](https://huggingface.co/docs/huggingface_hub/guides/cli), [Hugging Face token](https://huggingface.co/settings/tokens), [jq](https://stedolan.github.io/jq/) for example scripts
 
 ### Required user permissions
 
 - Regular user for default deployment; cluster admin for advanced configurations (e.g. F5 XC integration).
 
-### Document management
-
-  - Documents can be uploaded directly through the UI:
-
-  - Supported formats
-    - **PDF documents:** Security policies, manuals, and reports
-    - **Text files:** Plain text documents
-
-    Navigate to **Settings → Vector Databases** to create vector databases and upload documents.
 
 
 ## Deploy
@@ -141,7 +141,7 @@ The 70B model is not required for initial testing. Llama-Guard-3-8B is optional.
 
 **Application access:** Get the route with `oc get route -n <namespace>`, open the URL in a browser, and configure LLM settings (XC URL, model ID, API key) in the web UI.
 
-## Delete
+### Delete
 
 Remove the quickstart from the cluster:
 
@@ -171,14 +171,27 @@ oc delete project f5-ai-security
   ```
 
 - [F5 Distributed Cloud](https://www.f5.com/cloud)
-- [OpenShift AI](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self_managed)
+- [Red Hat OpenShift AI documentation](https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed)
 - [KServe](https://kserve.github.io/website/)
+- [vLLM project](https://docs.vllm.ai/)
+
+## Document management
+
+Documents can be uploaded directly through the UI.
+
+**Supported formats:**
+- **PDF documents** — Security policies, manuals, and reports
+- **Text files** — Plain text documents
+
+Navigate to **Settings → Vector Databases** to create vector databases and upload documents.
 
 ## Tags
 
-- **Title:** Securing Model Inference with F5 Distributed Cloud API Security
-- **Description:** Protect AI inference endpoints on OpenShift AI using F5 XC WAAP and API Security—schema validation, rate limiting, and sensitive-data controls.
+<!-- TODO: verify the Industry tag matches your target audience -->
+
+- **Title:** Secure model inference with F5 Distributed Cloud API Security
+- **Description:** Protect AI inference endpoints on OpenShift AI with F5 XC WAAP: WAF, API spec enforcement, shadow API prevention, and rate limiting.
 - **Industry:** Financial Services, Healthcare, Government (security-focused)
 - **Product:** OpenShift AI, OpenShift
 - **Use case:** security, API protection, model inference
-- **Contributor org:** Red Hat
+- **Contributor org:** F5 / Red Hat
